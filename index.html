@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>就活ナビ - 大学生のための就職活動情報収集ツール</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="app-header__inner">
+      <h1 class="app-header__title">🎓 就活ナビ</h1>
+      <p class="app-header__subtitle">大学生のための就職活動 情報収集・管理ツール</p>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button class="tabs__btn is-active" data-tab="dashboard">ダッシュボード</button>
+    <button class="tabs__btn" data-tab="companies">企業・求人</button>
+    <button class="tabs__btn" data-tab="selection">選考ステータス</button>
+    <button class="tabs__btn" data-tab="schedule">スケジュール</button>
+    <button class="tabs__btn" data-tab="reviews">口コミ</button>
+    <button class="tabs__btn" data-tab="data">データ取込/管理</button>
+  </nav>
+
+  <main class="container">
+    <!-- ダッシュボード -->
+    <section class="panel is-active" id="panel-dashboard">
+      <h2 class="panel__title">ダッシュボード</h2>
+      <div class="stats" id="dashStats"></div>
+
+      <div class="dash-grid">
+        <div class="card">
+          <h3 class="card__title">⏰ 直近の予定・締切（7日以内）</h3>
+          <ul class="upcoming" id="dashUpcoming"></ul>
+        </div>
+        <div class="card">
+          <h3 class="card__title">📊 選考ファネル</h3>
+          <div class="funnel" id="dashFunnel"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 企業・求人 -->
+    <section class="panel" id="panel-companies">
+      <div class="panel__head">
+        <h2 class="panel__title">企業・求人管理</h2>
+        <button class="btn btn--primary" id="addCompanyBtn">＋ 企業を追加</button>
+      </div>
+      <div class="toolbar">
+        <input type="search" id="companySearch" class="input" placeholder="企業名・業界・メモで検索…" />
+        <select id="companyFilterStatus" class="input">
+          <option value="">すべての選考状況</option>
+        </select>
+        <select id="companySort" class="input">
+          <option value="interest">関心度が高い順</option>
+          <option value="updated">更新が新しい順</option>
+          <option value="name">企業名順</option>
+        </select>
+      </div>
+      <div class="company-grid" id="companyGrid"></div>
+      <p class="empty" id="companyEmpty" hidden>まだ企業が登録されていません。「＋ 企業を追加」から登録するか、「データ取込/管理」タブでサンプルを読み込めます。</p>
+    </section>
+
+    <!-- 選考ステータス -->
+    <section class="panel" id="panel-selection">
+      <h2 class="panel__title">選考ステータス管理</h2>
+      <p class="panel__lead">カードのステータスを切り替えると、各企業の選考進捗が更新されます。</p>
+      <div class="board" id="selectionBoard"></div>
+    </section>
+
+    <!-- スケジュール -->
+    <section class="panel" id="panel-schedule">
+      <div class="panel__head">
+        <h2 class="panel__title">スケジュール・タスク</h2>
+        <button class="btn btn--primary" id="addTaskBtn">＋ タスクを追加</button>
+      </div>
+      <div class="toolbar">
+        <label class="checkline"><input type="checkbox" id="hideDoneTasks" /> 完了を非表示</label>
+      </div>
+      <ul class="task-list" id="taskList"></ul>
+      <p class="empty" id="taskEmpty" hidden>タスクはまだありません。説明会・ES締切・面接などを登録しましょう。</p>
+    </section>
+
+    <!-- 口コミ -->
+    <section class="panel" id="panel-reviews">
+      <div class="panel__head">
+        <h2 class="panel__title">口コミ収集</h2>
+        <button class="btn btn--primary" id="addReviewBtn">＋ 口コミを追加</button>
+      </div>
+      <p class="panel__lead">先輩・同期から聞いた選考体験や社風の評判を、企業ごとに蓄積できます。</p>
+      <div class="toolbar">
+        <select id="reviewFilterCompany" class="input">
+          <option value="">すべての企業</option>
+        </select>
+        <select id="reviewFilterCategory" class="input">
+          <option value="">すべてのカテゴリ</option>
+          <option value="選考体験">選考体験</option>
+          <option value="社風・雰囲気">社風・雰囲気</option>
+          <option value="待遇・福利厚生">待遇・福利厚生</option>
+          <option value="成長環境">成長環境</option>
+          <option value="その他">その他</option>
+        </select>
+      </div>
+      <div class="review-list" id="reviewList"></div>
+      <p class="empty" id="reviewEmpty" hidden>口コミはまだありません。</p>
+    </section>
+
+    <!-- データ取込/管理 -->
+    <section class="panel" id="panel-data">
+      <h2 class="panel__title">データ取込 / 管理</h2>
+
+      <div class="card">
+        <h3 class="card__title">📥 情報の自動収集（取り込み）</h3>
+        <p class="card__text">
+          就活ナビは外部の求人サイトへ自動アクセスはしません（プライバシー保護とサイト利用規約の観点から）。
+          代わりに、求人サイトやスプレッドシートから書き出した <strong>JSON</strong> を貼り付けて一括取り込みできます。
+          まずはサンプルデータで動作を試せます。
+        </p>
+        <div class="btn-row">
+          <button class="btn btn--primary" id="loadSampleBtn">サンプルデータを読み込む</button>
+          <button class="btn" id="showImportFormatBtn">取り込みフォーマットを表示</button>
+        </div>
+        <pre class="format-help" id="importFormatHelp" hidden></pre>
+        <textarea id="importJson" class="textarea" rows="8" placeholder='企業情報のJSON配列を貼り付け… 例: [{"name":"〇〇株式会社","industry":"IT"}]'></textarea>
+        <div class="btn-row">
+          <button class="btn btn--primary" id="importJsonBtn">JSONを取り込む</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card__title">💾 バックアップ / 復元</h3>
+        <p class="card__text">すべてのデータ（企業・口コミ・タスク）をファイルに書き出し／読み込みできます。</p>
+        <div class="btn-row">
+          <button class="btn" id="exportBtn">エクスポート（ダウンロード）</button>
+          <label class="btn btn--file">
+            インポート（ファイル選択）
+            <input type="file" id="importFile" accept="application/json" hidden />
+          </label>
+          <button class="btn btn--danger" id="resetBtn">全データを削除</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- モーダル -->
+  <div class="modal" id="modal" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__dialog" role="dialog" aria-modal="true">
+      <button class="modal__close" data-close aria-label="閉じる">×</button>
+      <h3 class="modal__title" id="modalTitle"></h3>
+      <form id="modalForm" class="form"></form>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <footer class="app-footer">
+    就活ナビ — データはお使いのブラウザ内にのみ保存されます。
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
