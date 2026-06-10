@@ -9,8 +9,11 @@
 <body>
   <header class="app-header">
     <div class="app-header__inner">
-      <h1 class="app-header__title">🎓 就活ナビ</h1>
-      <p class="app-header__subtitle">大学生のための就職活動 情報収集・管理ツール</p>
+      <div>
+        <h1 class="app-header__title">🎓 就活ナビ</h1>
+        <p class="app-header__subtitle">大学生のための就職活動 情報収集・管理ツール</p>
+      </div>
+      <button class="theme-toggle" id="themeToggle" type="button" title="ダーク／ライト切替" aria-label="テーマ切替">🌙</button>
     </div>
   </header>
 
@@ -114,7 +117,9 @@
         <h3 class="card__title">📥 情報の自動収集（取り込み）</h3>
         <p class="card__text">
           就活ナビは外部の求人サイトへ自動アクセスはしません（プライバシー保護とサイト利用規約の観点から）。
-          代わりに、求人サイトやスプレッドシートから書き出した <strong>JSON</strong> を貼り付けて一括取り込みできます。
+          代わりに、企業ごとの「🔍 リサーチ」ボタンから主要な口コミ・選考体験・ニュースサイトへワンクリックで飛べます。
+          一括登録は、求人サイトやスプレッドシートから書き出した <strong>JSON</strong> または <strong>CSV</strong> を
+          下の欄に貼り付けるだけ（先頭が <code>[</code> / <code>{</code> ならJSON、それ以外はCSVとして自動判定）。
           まずはサンプルデータで動作を試せます。
         </p>
         <div class="btn-row">
@@ -122,9 +127,12 @@
           <button class="btn" id="showImportFormatBtn">取り込みフォーマットを表示</button>
         </div>
         <pre class="format-help" id="importFormatHelp" hidden></pre>
-        <textarea id="importJson" class="textarea" rows="8" placeholder='企業情報のJSON配列を貼り付け… 例: [{"name":"〇〇株式会社","industry":"IT"}]'></textarea>
+        <textarea id="importJson" class="textarea" rows="8" placeholder='JSON配列 例: [{"name":"〇〇株式会社","industry":"IT"}]
+または CSV 例:
+name,industry,jobType,location
+〇〇株式会社,IT・通信,エンジニア,東京'></textarea>
         <div class="btn-row">
-          <button class="btn btn--primary" id="importJsonBtn">JSONを取り込む</button>
+          <button class="btn btn--primary" id="importJsonBtn">取り込む（JSON / CSV）</button>
         </div>
       </div>
 
@@ -133,9 +141,10 @@
         <p class="card__text">すべてのデータ（企業・口コミ・タスク）をファイルに書き出し／読み込みできます。</p>
         <div class="btn-row">
           <button class="btn" id="exportBtn">エクスポート（ダウンロード）</button>
+          <button class="btn" id="exportCsvBtn">CSVで書き出す（Excel/スプレッドシート用）</button>
           <label class="btn btn--file">
-            インポート（ファイル選択）
-            <input type="file" id="importFile" accept="application/json" hidden />
+            インポート（JSON / CSV ファイル）
+            <input type="file" id="importFile" accept="application/json,.csv,text/csv" hidden />
           </label>
           <button class="btn btn--danger" id="resetBtn">全データを削除</button>
         </div>

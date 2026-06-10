@@ -112,6 +112,29 @@
   }
 
   /* ============================================================
+   * テーマ（ダーク / ライト）
+   * ============================================================ */
+  const THEME_KEY = "shukatsu-navi.theme";
+  function applyTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    const btn = $("#themeToggle");
+    if (btn) btn.textContent = theme === "dark" ? "☀️" : "🌙";
+  }
+  function initTheme() {
+    let theme = localStorage.getItem(THEME_KEY);
+    if (!theme) {
+      theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    applyTheme(theme);
+  }
+  $("#themeToggle").addEventListener("click", () => {
+    const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    localStorage.setItem(THEME_KEY, next);
+    applyTheme(next);
+  });
+  initTheme();
+
+  /* ============================================================
    * タブ切り替え
    * ============================================================ */
   $("#tabs").addEventListener("click", (e) => {
@@ -229,6 +252,7 @@
       actions = el("div", { class: "company__actions" }, [select]);
     } else {
       actions = el("div", { class: "company__actions" }, [
+        el("button", { class: "btn btn--primary", onclick: () => openResearchModal(c) }, "🔍 リサーチ"),
         el("button", { class: "btn", onclick: () => openCompanyModal(c) }, "編集"),
         el("button", { class: "btn btn--danger", onclick: () => deleteCompany(c.id) }, "削除"),
       ]);
@@ -519,6 +543,87 @@
   }
 
   /* ============================================================
+   * 企業リサーチ（情報収集の入口を自動生成）
+   * 各サイトへ自動アクセス（スクレイピング）はせず、企業名から
+   * 主要な検索／口コミ／選考体験サイトへのリンクを組み立てて開く。
+   * ============================================================ */
+  function researchLinks(c) {
+    const name = c.name;
+    const enc = (s) => encodeURIComponent(s);
+    const g = (q) => "https://www.google.com/search?q=" + enc(q);
+    const gnews = (q) => "https://news.google.com/search?q=" + enc(q) + "&hl=ja&gl=JP&ceid=JP:ja";
+
+    return [
+      {
+        group: "🏢 公式・採用情報",
+        links: [
+          { label: c.url ? "登録済みの企業ページ" : "公式サイト・採用ページを探す", url: c.url || g(`${name} 採用 公式サイト`) },
+          { label: "新卒採用・募集要項", url: g(`${name} 新卒採用 募集要項 ${(new Date().getFullYear() + 1)}`) },
+          { label: "マイナビ／リクナビで探す", url: g(`${name} site:job.mynavi.jp OR site:job.rikunabi.com`) },
+        ],
+      },
+      {
+        group: "💬 口コミ・評判",
+        links: [
+          { label: "OpenWork（社員口コミ）", url: "https://www.openwork.jp/company_list?src_str=" + enc(name) },
+          { label: "ライトハウス（en）で評判", url: g(`${name} site:en-hyouban.com`) },
+          { label: "評判・口コミ全般", url: g(`${name} 評判 口コミ 就職 ホワイト ブラック`) },
+        ],
+      },
+      {
+        group: "📝 選考体験（ES・面接）",
+        links: [
+          { label: "ONE CAREER 選考体験記", url: g(`${name} site:onecareer.jp`) },
+          { label: "みんなの就職活動日記", url: g(`${name} みんなの就職活動日記 体験記`) },
+          { label: "ES例・面接の質問", url: g(`${name} ES 例文 面接 質問 選考フロー`) },
+        ],
+      },
+      {
+        group: "🔎 企業研究",
+        links: [
+          { label: "最新ニュース（Googleニュース）", url: gnews(name) },
+          { label: "平均年収・待遇", url: g(`${name} 平均年収 初任給 残業`) },
+          { label: "業界・競合・シェア", url: g(`${name} 競合 業界 シェア 強み 弱み`) },
+          { label: "IR・有価証券報告書", url: g(`${name} IR 有価証券報告書 業績`) },
+        ],
+      },
+    ];
+  }
+
+  function openResearchModal(c) {
+    const groups = researchLinks(c);
+    const wrap = el("div", { class: "research" }, [
+      el("p", { class: "research__lead", text: `「${c.name}」について調べる入口です。各リンクは新しいタブで開きます。` }),
+      ...groups.map((grp) =>
+        el("div", { class: "research__group" }, [
+          el("h4", { class: "research__group-title", text: grp.group }),
+          el("div", { class: "research__links" },
+            grp.links.map((lk) =>
+              el("a", { class: "research__link", href: lk.url, target: "_blank", rel: "noopener noreferrer" }, lk.label)
+            )
+          ),
+        ])
+      ),
+    ]);
+    openInfoModal(`🔍 企業リサーチ — ${c.name}`, wrap);
+  }
+
+  // フォームを伴わない汎用モーダル（リサーチ結果などの表示用）
+  function openInfoModal(title, contentNode) {
+    $("#modalTitle").textContent = title;
+    const form = $("#modalForm");
+    form.innerHTML = "";
+    form.onsubmit = (e) => e.preventDefault();
+    form.appendChild(contentNode);
+    form.appendChild(
+      el("div", { class: "form__actions" }, [
+        el("button", { type: "button", class: "btn btn--primary", onclick: closeModal }, "閉じる"),
+      ])
+    );
+    modal.hidden = false;
+  }
+
+  /* ============================================================
    * データ取込 / 管理
    * ============================================================ */
   const IMPORT_FORMAT = `[
@@ -627,10 +732,74 @@
     toast("エクスポートしました");
   }
 
+  /* ---------- CSV（Excel / スプレッドシート連携） ---------- */
+  const CSV_COLUMNS = ["name", "industry", "jobType", "location", "status", "interest", "url", "nextAction", "nextDate", "memo"];
+
+  function csvCell(v) {
+    const s = String(v == null ? "" : v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+
+  function doExportCsv() {
+    if (state.companies.length === 0) { toast("書き出す企業がありません"); return; }
+    const rows = [CSV_COLUMNS.join(",")];
+    state.companies.forEach((c) => rows.push(CSV_COLUMNS.map((k) => csvCell(c[k])).join(",")));
+    // 先頭に BOM を付けて Excel での文字化けを防ぐ
+    const blob = new Blob(["﻿" + rows.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = el("a", { href: url, download: `shukatsu-navi-companies-${new Date().toISOString().slice(0, 10)}.csv` });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast(`${state.companies.length}件をCSVで書き出しました`);
+  }
+
+  // 簡易CSVパーサ（カンマ区切り・ダブルクォート対応・改行込みセル対応）
+  function parseCSV(text) {
+    const rows = [];
+    let row = [], cell = "", inQuotes = false;
+    text = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          if (text[i + 1] === '"') { cell += '"'; i++; }
+          else inQuotes = false;
+        } else cell += ch;
+      } else if (ch === '"') inQuotes = true;
+      else if (ch === ",") { row.push(cell); cell = ""; }
+      else if (ch === "\n") { row.push(cell); rows.push(row); row = []; cell = ""; }
+      else cell += ch;
+    }
+    if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+    return rows.filter((r) => r.some((c) => c.trim() !== ""));
+  }
+
+  function importCSV(text) {
+    const rows = parseCSV(text);
+    if (rows.length < 2) throw new Error("ヘッダー行とデータ行が必要です");
+    const header = rows[0].map((h) => h.trim());
+    const objs = rows.slice(1).map((r) => {
+      const o = {};
+      header.forEach((h, i) => { if (h) o[h] = (r[i] || "").trim(); });
+      return o;
+    });
+    return importCompanies(objs);
+  }
+
   function doImportFile(file) {
     const reader = new FileReader();
+    const isCsv = /\.csv$/i.test(file.name);
     reader.onload = () => {
       try {
+        if (isCsv) {
+          const n = importCSV(String(reader.result));
+          save();
+          renderAll();
+          toast(`CSVから${n}件の企業を取り込みました`);
+          return;
+        }
         const data = JSON.parse(reader.result);
         if (!data.companies && !Array.isArray(data)) throw new Error("形式が不正です");
         if (Array.isArray(data)) {
@@ -677,17 +846,20 @@
   });
   $("#importJsonBtn").addEventListener("click", () => {
     const raw = $("#importJson").value.trim();
-    if (!raw) { toast("JSONを入力してください"); return; }
+    if (!raw) { toast("JSONまたはCSVを入力してください"); return; }
+    // JSON（[ や { で始まる）か CSV かを自動判定
+    const isJson = raw[0] === "[" || raw[0] === "{";
     try {
-      const n = importCompanies(JSON.parse(raw));
+      const n = isJson ? importCompanies(JSON.parse(raw)) : importCSV(raw);
       save();
       renderAll();
       $("#importJson").value = "";
       toast(`${n}件の企業を取り込みました（重複・名称なしは除外）`);
     } catch (e) {
-      toast("JSONの解析に失敗しました: " + e.message);
+      toast((isJson ? "JSON" : "CSV") + "の解析に失敗しました: " + e.message);
     }
   });
+  $("#exportCsvBtn").addEventListener("click", doExportCsv);
   $("#exportBtn").addEventListener("click", doExport);
   $("#importFile").addEventListener("change", (e) => {
     if (e.target.files[0]) doImportFile(e.target.files[0]);
