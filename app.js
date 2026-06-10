@@ -139,6 +139,31 @@
     return c ? c.name : "（不明な企業）";
   }
 
+  /* ---------- 内定お祝い演出（紙吹雪） ---------- */
+  function celebrate(name) {
+    const colors = ["#f43f5e", "#f59e0b", "#10b981", "#3b82f6", "#a855f7", "#fde047"];
+    const layer = el("div", { class: "confetti-layer" });
+    for (let i = 0; i < 130; i++) {
+      const piece = el("span", { class: "confetti" });
+      piece.style.left = Math.random() * 100 + "vw";
+      piece.style.background = colors[i % colors.length];
+      piece.style.animationDelay = Math.random() * 0.6 + "s";
+      piece.style.animationDuration = 2.4 + Math.random() * 1.6 + "s";
+      piece.style.transform = `rotate(${Math.random() * 360}deg)`;
+      if (i % 4 === 0) piece.style.borderRadius = "50%";
+      layer.appendChild(piece);
+    }
+    const banner = el("div", { class: "celebrate-banner" }, [
+      el("div", { class: "celebrate-banner__emoji", text: "🎉" }),
+      el("div", { class: "celebrate-banner__title", text: "内定おめでとう！" }),
+      name ? el("div", { class: "celebrate-banner__name", text: name }) : null,
+    ]);
+    layer.appendChild(banner);
+    document.body.appendChild(layer);
+    setTimeout(() => layer.classList.add("is-leaving"), 2600);
+    setTimeout(() => layer.remove(), 3400);
+  }
+
   /* ============================================================
    * テーマ（ダーク / ライト）
    * ============================================================ */
@@ -322,11 +347,13 @@
   function updateStatus(id, status) {
     const c = state.companies.find((x) => x.id === id);
     if (!c) return;
+    const wasOffer = c.status === "内定";
     c.status = status;
     c.updatedAt = Date.now();
     save();
     renderAll();
     toast(`${c.name} を「${status}」に更新しました`);
+    if (status === "内定" && !wasOffer) celebrate(c.name);
   }
 
   function deleteCompany(id) {
@@ -837,6 +864,7 @@
       { name: "memo", label: "メモ", type: "textarea", rows: 3, value: c.memo, placeholder: "志望理由、選考フロー、気づきなど" },
     ], (data) => {
       data.interest = Number(data.interest) || 0;
+      const wasOffer = existing && existing.status === "内定";
       if (existing) {
         Object.assign(existing, data, { updatedAt: Date.now() });
       } else {
@@ -845,6 +873,7 @@
       save();
       renderAll();
       toast(existing ? "更新しました" : "企業を追加しました");
+      if (data.status === "内定" && !wasOffer) celebrate(data.name);
     });
   }
 

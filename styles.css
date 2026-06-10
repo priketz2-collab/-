@@ -367,6 +367,36 @@ body {
 .char-counter { text-align: right; font-size: 0.82rem; color: var(--text-muted); font-weight: 600; margin-top: -6px; }
 .char-counter.is-over { color: var(--danger); }
 
+/* 内定お祝い演出 */
+.confetti-layer {
+  position: fixed; inset: 0; z-index: 200; pointer-events: none; overflow: hidden;
+  transition: opacity 0.7s ease;
+}
+.confetti-layer.is-leaving { opacity: 0; }
+.confetti {
+  position: absolute; top: -24px; width: 10px; height: 16px;
+  opacity: 0.95; animation: confetti-fall linear forwards;
+}
+@keyframes confetti-fall {
+  0% { top: -24px; opacity: 1; }
+  100% { top: 105vh; opacity: 0.9; }
+}
+.celebrate-banner {
+  position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.96); color: #1f2533;
+  border-radius: 18px; padding: 22px 36px; text-align: center;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.28);
+  animation: celebrate-pop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+[data-theme="dark"] .celebrate-banner { background: rgba(26, 33, 48, 0.97); color: #e6e9f0; }
+.celebrate-banner__emoji { font-size: 2.6rem; line-height: 1; }
+.celebrate-banner__title { font-size: 1.4rem; font-weight: 800; margin-top: 6px; }
+.celebrate-banner__name { font-size: 1rem; color: var(--primary); font-weight: 700; margin-top: 4px; }
+@keyframes celebrate-pop {
+  0% { transform: translate(-50%, -50%) scale(0.4); opacity: 0; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
 /* Interview Q&A */
 .qa-list { display: flex; flex-direction: column; gap: 14px; }
 .qa {
