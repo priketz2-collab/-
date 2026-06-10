@@ -24,6 +24,7 @@
     <button class="tabs__btn" data-tab="selection">選考ステータス</button>
     <button class="tabs__btn" data-tab="schedule">スケジュール</button>
     <button class="tabs__btn" data-tab="essays">ES・自己PR</button>
+    <button class="tabs__btn" data-tab="interview">面接対策</button>
     <button class="tabs__btn" data-tab="reviews">口コミ</button>
     <button class="tabs__btn" data-tab="data">データ取込/管理</button>
   </nav>
@@ -152,6 +153,28 @@
       </div>
       <div class="essay-list" id="essayList"></div>
       <p class="empty" id="essayEmpty" hidden>まだ文章がありません。「＋ 文章を追加」から登録しましょう。</p>
+    </section>
+
+    <!-- 面接対策 -->
+    <section class="panel" id="panel-interview">
+      <div class="panel__head">
+        <h2 class="panel__title">面接対策</h2>
+        <div class="btn-row" style="margin-top:0">
+          <button class="btn" id="addPresetQaBtn">よくある質問から追加</button>
+          <button class="btn btn--primary" id="addQaBtn">＋ 質問を追加</button>
+        </div>
+      </div>
+      <p class="panel__lead">想定質問に対する自分の回答を準備・蓄積できます。声に出して練習したら「練習済み」にチェック。</p>
+      <div class="stats" id="qaStats"></div>
+      <div class="toolbar">
+        <input type="search" id="qaSearch" class="input" placeholder="質問・回答で検索…" />
+        <select id="qaFilterCompany" class="input">
+          <option value="">すべての企業（汎用含む）</option>
+        </select>
+        <label class="checkline"><input type="checkbox" id="qaHidePracticed" /> 練習済みを非表示</label>
+      </div>
+      <div class="qa-list" id="qaList"></div>
+      <p class="empty" id="qaEmpty" hidden>まだ質問がありません。「よくある質問から追加」ですぐ始められます。</p>
     </section>
 
     <!-- データ取込/管理 -->

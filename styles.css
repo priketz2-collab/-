@@ -367,6 +367,26 @@ body {
 .char-counter { text-align: right; font-size: 0.82rem; color: var(--text-muted); font-weight: 600; margin-top: -6px; }
 .char-counter.is-over { color: var(--danger); }
 
+/* Interview Q&A */
+.qa-list { display: flex; flex-direction: column; gap: 14px; }
+.qa {
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 4px solid var(--accent); border-radius: var(--radius);
+  padding: 16px 18px; box-shadow: var(--shadow);
+}
+.qa.is-practiced { border-left-color: var(--success); }
+.qa__head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.qa__practice { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-muted); font-weight: 600; cursor: pointer; }
+.qa.is-practiced .qa__practice { color: var(--success); }
+.qa__company { font-size: 0.74rem; background: var(--bg); color: var(--text-muted); padding: 2px 9px; border-radius: 999px; font-weight: 600; border: 1px solid var(--border); }
+.qa__question { font-weight: 700; font-size: 0.98rem; margin: 10px 0 6px; }
+.qa__answer { font-size: 0.88rem; white-space: pre-wrap; line-height: 1.7; color: var(--text); }
+.qa__answer--empty { color: var(--text-muted); font-style: italic; }
+.qa__foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.qa__count { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; }
+.qa__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.qa__actions .btn { padding: 6px 12px; font-size: 0.82rem; }
+
 /* Research modal */
 .research__lead { font-size: 0.86rem; color: var(--text-muted); margin: 0 0 16px; }
 .research__group { margin-bottom: 16px; }

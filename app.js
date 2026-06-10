@@ -42,10 +42,26 @@
     s.tasks = Array.isArray(s.tasks) ? s.tasks : [];
     s.reviews = Array.isArray(s.reviews) ? s.reviews : [];
     s.essays = Array.isArray(s.essays) ? s.essays : [];
+    s.interviewQA = Array.isArray(s.interviewQA) ? s.interviewQA : [];
     return s;
   }
 
   const ESSAY_CATEGORIES = ["志望動機", "自己PR", "ガクチカ", "長所・短所", "その他"];
+
+  // 面接でよく聞かれる定番質問（テンプレ）
+  const PRESET_QUESTIONS = [
+    "自己紹介を1分でお願いします。",
+    "学生時代に最も力を入れたこと（ガクチカ）を教えてください。",
+    "なぜ当社を志望するのですか？",
+    "あなたの強みと弱みを教えてください。",
+    "その強みが活きた具体的なエピソードはありますか？",
+    "挫折した経験と、それをどう乗り越えたか教えてください。",
+    "チームで成果を出した経験を教えてください。",
+    "入社後にやってみたいこと・5年後のキャリアは？",
+    "他にどんな業界・企業を見ていますか？",
+    "周りからどんな人だと言われますか？",
+    "最後に何か質問はありますか？（逆質問）",
+  ];
 
   function save() {
     try {
@@ -321,6 +337,7 @@
     state.reviews = state.reviews.filter((r) => r.companyId !== id);
     state.tasks.forEach((t) => { if (t.companyId === id) t.companyId = ""; });
     state.essays.forEach((e) => { if (e.companyId === id) e.companyId = ""; });
+    state.interviewQA.forEach((q) => { if (q.companyId === id) q.companyId = ""; });
     delete compareSel[id];
     save();
     renderAll();
@@ -619,7 +636,7 @@
           ]),
           el("div", { class: "essay__body", text: e.body }),
           el("div", { class: "essay__actions" }, [
-            el("button", { class: "btn", onclick: () => copyEssay(e) }, "📋 コピー"),
+            el("button", { class: "btn", onclick: () => copyText(e.body) }, "📋 コピー"),
             el("button", { class: "btn", onclick: () => openEssayModal(e) }, "編集"),
             el("button", { class: "btn btn--danger", onclick: () => deleteEssay(e.id) }, "削除"),
           ]),
@@ -629,8 +646,8 @@
     $("#essayEmpty").hidden = state.essays.length !== 0;
   }
 
-  function copyEssay(e) {
-    const text = e.body || "";
+  function copyText(text) {
+    text = text || "";
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(() => toast("本文をコピーしました")).catch(() => toast("コピーに失敗しました"));
     } else {
@@ -651,6 +668,105 @@
     save();
     renderEssays();
     toast("削除しました");
+  }
+
+  /* ============================================================
+   * 面接対策（想定質問＆回答メモ）
+   * ============================================================ */
+  function renderQaFilters() {
+    const sel = $("#qaFilterCompany");
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = `<option value="">すべての企業（汎用含む）</option>` +
+      `<option value="__none__">汎用（企業未指定）</option>` +
+      state.companies.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("");
+    sel.value = cur;
+  }
+
+  function renderInterview() {
+    renderQaFilters();
+    const list = $("#qaList");
+    if (!list) return;
+
+    const total = state.interviewQA.length;
+    const answered = state.interviewQA.filter((q) => (q.answer || "").trim()).length;
+    const practiced = state.interviewQA.filter((q) => q.practiced).length;
+    $("#qaStats").innerHTML = [
+      { num: total, label: "登録質問数" },
+      { num: answered, label: "回答済み" },
+      { num: practiced, label: "練習済み" },
+    ].map((s) => `<div class="stat"><div class="stat__num">${s.num}</div><div class="stat__label">${esc(s.label)}</div></div>`).join("");
+
+    const q = $("#qaSearch").value.trim().toLowerCase();
+    const comp = $("#qaFilterCompany").value;
+    const hidePracticed = $("#qaHidePracticed").checked;
+
+    let items = state.interviewQA.slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    if (q) items = items.filter((x) => [x.question, x.answer].some((f) => (f || "").toLowerCase().includes(q)));
+    if (comp === "__none__") items = items.filter((x) => !x.companyId);
+    else if (comp) items = items.filter((x) => x.companyId === comp);
+    if (hidePracticed) items = items.filter((x) => !x.practiced);
+
+    list.innerHTML = "";
+    items.forEach((x) => {
+      const len = (x.answer || "").length;
+      list.appendChild(
+        el("div", { class: "qa" + (x.practiced ? " is-practiced" : "") }, [
+          el("div", { class: "qa__head" }, [
+            el("label", { class: "qa__practice" }, [
+              el("input", { type: "checkbox", checked: !!x.practiced, onchange: () => togglePracticed(x.id) }),
+              document.createTextNode("練習済み"),
+            ]),
+            el("span", { class: "qa__company", text: x.companyId ? companyName(x.companyId) : "汎用" }),
+          ]),
+          el("div", { class: "qa__question", text: "Q. " + (x.question || "") }),
+          x.answer
+            ? el("div", { class: "qa__answer", text: x.answer })
+            : el("div", { class: "qa__answer qa__answer--empty", text: "（回答未記入）" }),
+          el("div", { class: "qa__foot" }, [
+            el("span", { class: "qa__count", text: `${len}字` }),
+            el("div", { class: "qa__actions" }, [
+              x.answer ? el("button", { class: "btn", onclick: () => copyText(x.answer) }, "📋 コピー") : null,
+              el("button", { class: "btn", onclick: () => openQaModal(x) }, "編集"),
+              el("button", { class: "btn btn--danger", onclick: () => deleteQa(x.id) }, "削除"),
+            ]),
+          ]),
+        ])
+      );
+    });
+    $("#qaEmpty").hidden = total !== 0;
+  }
+
+  function togglePracticed(id) {
+    const x = state.interviewQA.find((q) => q.id === id);
+    if (!x) return;
+    x.practiced = !x.practiced;
+    x.updatedAt = Date.now();
+    save();
+    renderInterview();
+  }
+
+  function deleteQa(id) {
+    const x = state.interviewQA.find((q) => q.id === id);
+    if (!x) return;
+    if (!confirm("この質問を削除しますか？")) return;
+    state.interviewQA = state.interviewQA.filter((q) => q.id !== id);
+    save();
+    renderInterview();
+    toast("削除しました");
+  }
+
+  function addPresetQuestions() {
+    const existingQs = new Set(state.interviewQA.map((q) => q.question));
+    let added = 0;
+    PRESET_QUESTIONS.forEach((question) => {
+      if (existingQs.has(question)) return;
+      state.interviewQA.push({ id: uid(), question, answer: "", companyId: "", practiced: false, createdAt: Date.now(), updatedAt: Date.now() });
+      added++;
+    });
+    save();
+    renderInterview();
+    toast(added > 0 ? `定番質問を${added}件追加しました` : "未追加の定番質問はありません");
   }
 
   /* ============================================================
@@ -854,6 +970,63 @@
     title.focus();
   }
 
+  function openQaModal(existing) {
+    const x = existing || {};
+    $("#modalTitle").textContent = existing ? "質問・回答を編集" : "質問を追加";
+    const form = $("#modalForm");
+    form.innerHTML = "";
+
+    const mk = (labelText, input) => {
+      const label = el("label", {}, [document.createTextNode(labelText)]);
+      label.appendChild(input);
+      return label;
+    };
+
+    const question = el("input", { type: "text", name: "question", placeholder: "例：学生時代に力を入れたことは？", value: x.question || "" });
+    question.required = true;
+    const companyOpts = [{ value: "", label: "汎用（企業未指定）" }]
+      .concat(state.companies.map((c) => ({ value: c.id, label: c.name })));
+    const company = el("select", { name: "companyId" },
+      companyOpts.map((o) => el("option", { value: o.value, selected: o.value === (x.companyId || "") }, o.label)));
+    const answer = el("textarea", { name: "answer", rows: 8, placeholder: "自分の回答を入力…（結論→具体例→学び の順がおすすめ）" });
+    answer.value = x.answer || "";
+
+    const counter = el("div", { class: "char-counter" });
+    const update = () => { counter.textContent = `${answer.value.length} 字`; };
+    answer.addEventListener("input", update);
+
+    form.appendChild(mk("質問 *", question));
+    form.appendChild(mk("対象企業", company));
+    form.appendChild(mk("回答メモ", answer));
+    form.appendChild(counter);
+    update();
+
+    form.appendChild(
+      el("div", { class: "form__actions" }, [
+        el("button", { type: "button", class: "btn", onclick: closeModal }, "キャンセル"),
+        el("button", { type: "submit", class: "btn btn--primary" }, "保存"),
+      ])
+    );
+
+    form.onsubmit = (ev) => {
+      ev.preventDefault();
+      const data = { question: question.value.trim(), companyId: company.value, answer: answer.value.trim() };
+      if (!data.question) return;
+      if (existing) {
+        Object.assign(existing, data, { updatedAt: Date.now() });
+      } else {
+        state.interviewQA.push({ id: uid(), ...data, practiced: false, createdAt: Date.now(), updatedAt: Date.now() });
+      }
+      save();
+      renderInterview();
+      closeModal();
+      toast(existing ? "更新しました" : "質問を追加しました");
+    };
+
+    modal.hidden = false;
+    question.focus();
+  }
+
   /* ============================================================
    * 企業リサーチ（情報収集の入口を自動生成）
    * 各サイトへ自動アクセス（スクレイピング）はせず、企業名から
@@ -1042,6 +1215,16 @@
         createdAt: Date.now(), updatedAt: Date.now(),
       });
     }
+    // サンプル面接Q&A（定番質問＋1件は回答・練習済み）
+    if (state.interviewQA.length === 0) {
+      addPresetQuestions();
+      const gakuchika = state.interviewQA.find((q) => q.question.indexOf("ガクチカ") >= 0);
+      if (gakuchika) {
+        gakuchika.answer = "サークルの会計を効率化したことです。引き継ぎのたびに集計で混乱していたため、無料ツールで収支を自動集計する仕組みを作り、月次の作業時間を約8割削減しました。現状を聞き取り、相手を巻き込みながら改善を進める力が身についたと感じています。";
+        gakuchika.practiced = true;
+        gakuchika.updatedAt = Date.now();
+      }
+    }
     save();
     renderAll();
     toast(`サンプルを読み込みました（企業${added}件・口コミ${revAdded}件）`);
@@ -1155,6 +1338,8 @@
   $("#addTaskBtn").addEventListener("click", () => openTaskModal(null));
   $("#addReviewBtn").addEventListener("click", () => openReviewModal());
   $("#addEssayBtn").addEventListener("click", () => openEssayModal(null));
+  $("#addQaBtn").addEventListener("click", () => openQaModal(null));
+  $("#addPresetQaBtn").addEventListener("click", addPresetQuestions);
 
   ["companySearch", "companyFilterStatus", "companySort"].forEach((id) =>
     $("#" + id).addEventListener("input", renderCompanies));
@@ -1163,6 +1348,8 @@
     $("#" + id).addEventListener("change", renderReviews));
   ["essaySearch", "essayFilterCategory", "essayFilterCompany"].forEach((id) =>
     $("#" + id).addEventListener("input", renderEssays));
+  ["qaSearch", "qaFilterCompany", "qaHidePracticed"].forEach((id) =>
+    $("#" + id).addEventListener("input", renderInterview));
 
   $("#calPrev").addEventListener("click", () => shiftMonth(-1));
   $("#calNext").addEventListener("click", () => shiftMonth(1));
@@ -1201,7 +1388,7 @@
   });
   $("#resetBtn").addEventListener("click", () => {
     if (!confirm("すべてのデータを削除します。元に戻せません。よろしいですか？")) return;
-    state = { companies: [], tasks: [], reviews: [], essays: [] };
+    state = { companies: [], tasks: [], reviews: [], essays: [], interviewQA: [] };
     compareSel = {};
     save();
     renderAll();
@@ -1219,6 +1406,7 @@
     renderTasks();
     renderCalendar();
     renderEssays();
+    renderInterview();
     renderReviews();
   }
 
