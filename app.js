@@ -190,13 +190,39 @@
   /* ============================================================
    * タブ切り替え
    * ============================================================ */
+  function activateTab(tab) {
+    $$(".tabs__btn").forEach((b) => b.classList.toggle("is-active", b.dataset.tab === tab));
+    $$(".panel").forEach((p) => p.classList.toggle("is-active", p.id === "panel-" + tab));
+    renderAll();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   $("#tabs").addEventListener("click", (e) => {
     const btn = e.target.closest(".tabs__btn");
     if (!btn) return;
-    $$(".tabs__btn").forEach((b) => b.classList.toggle("is-active", b === btn));
-    const tab = btn.dataset.tab;
-    $$(".panel").forEach((p) => p.classList.toggle("is-active", p.id === "panel-" + tab));
-    renderAll();
+    activateTab(btn.dataset.tab);
+  });
+
+  // 企業一覧を特定の選考状況で絞り込んで開く
+  function openCompaniesFiltered(status) {
+    activateTab("companies");
+    if (status) { $("#companyFilterStatus").value = status; renderCompanies(); }
+  }
+
+  // ダッシュボードのクリック導線（コンテナは再描画されても残るので一度だけ結線）
+  $("#dashStats").addEventListener("click", (e) => {
+    const card = e.target.closest("[data-goto]");
+    if (!card) return;
+    if (card.dataset.status) openCompaniesFiltered(card.dataset.status);
+    else activateTab(card.dataset.goto);
+  });
+  $("#dashUpcoming").addEventListener("click", (e) => {
+    const li = e.target.closest("li[data-goto]");
+    if (li) activateTab(li.dataset.goto);
+  });
+  $("#dashFunnel").addEventListener("click", (e) => {
+    const row = e.target.closest("[data-status]");
+    if (row) openCompaniesFiltered(row.dataset.status);
   });
 
   /* ============================================================
@@ -209,14 +235,14 @@
     const pendingTasks = state.tasks.filter((t) => !t.done);
 
     const stats = [
-      { num: c.length, label: "登録企業数" },
-      { num: active.length, label: "選考中" },
-      { num: offers.length, label: "内定" },
-      { num: pendingTasks.length, label: "未完了タスク" },
-      { num: state.reviews.length, label: "口コミ件数" },
+      { num: c.length, label: "登録企業数", goto: "companies" },
+      { num: active.length, label: "選考中", goto: "selection" },
+      { num: offers.length, label: "内定", goto: "companies", status: "内定" },
+      { num: pendingTasks.length, label: "未完了タスク", goto: "schedule" },
+      { num: state.reviews.length, label: "口コミ件数", goto: "reviews" },
     ];
     $("#dashStats").innerHTML = stats
-      .map((s) => `<div class="stat"><div class="stat__num">${s.num}</div><div class="stat__label">${esc(s.label)}</div></div>`)
+      .map((s) => `<div class="stat is-clickable" data-goto="${esc(s.goto)}"${s.status ? ` data-status="${esc(s.status)}"` : ""} title="クリックで開く"><div class="stat__num">${s.num}</div><div class="stat__label">${esc(s.label)}</div></div>`)
       .join("");
 
     // 直近の予定（タスク締切 + 企業の次アクション日）
@@ -237,7 +263,7 @@
       ul.innerHTML = upcoming
         .map((e) => {
           const f = formatDue(e.date);
-          return `<li><span>${esc(e.label)}<br><small style="color:var(--text-muted)">${esc(e.sub)}</small></span><span class="when ${f.cls}">${esc(f.text)}</span></li>`;
+          return `<li class="is-clickable" data-goto="schedule" title="スケジュールを開く"><span>${esc(e.label)}<br><small style="color:var(--text-muted)">${esc(e.sub)}</small></span><span class="when ${f.cls}">${esc(f.text)}</span></li>`;
         })
         .join("");
     }
@@ -250,7 +276,7 @@
     $("#dashFunnel").innerHTML = STATUSES.filter((s) => counts[s.key] > 0)
       .map((s) => {
         const w = Math.round((counts[s.key] / max) * 100);
-        return `<div class="funnel__row"><span class="funnel__label">${esc(s.key)}</span><span class="funnel__bar" style="width:${w}%;background:${s.color}"></span><span class="funnel__count">${counts[s.key]}</span></div>`;
+        return `<div class="funnel__row is-clickable" data-status="${esc(s.key)}" title="「${esc(s.key)}」の企業を表示"><span class="funnel__label">${esc(s.key)}</span><span class="funnel__bar" style="width:${w}%;background:${s.color}"></span><span class="funnel__count">${counts[s.key]}</span></div>`;
       })
       .join("") || `<p class="card__text">まだ選考データがありません。</p>`;
   }
@@ -306,6 +332,8 @@
     } else {
       actions = el("div", { class: "company__actions" }, [
         el("button", { class: "btn btn--primary", onclick: () => openResearchModal(c) }, "🔍 リサーチ"),
+        el("button", { class: "btn", onclick: () => openTaskModal(null, c.id) }, "＋タスク"),
+        el("button", { class: "btn", onclick: () => openReviewModal(c.id) }, "＋口コミ"),
         el("button", { class: "btn", onclick: () => openCompanyModal(c) }, "編集"),
         el("button", { class: "btn btn--danger", onclick: () => deleteCompany(c.id) }, "削除"),
       ]);
@@ -877,7 +905,7 @@
     });
   }
 
-  function openTaskModal(existing) {
+  function openTaskModal(existing, presetCompanyId) {
     const t = existing || {};
     const companyOpts = [{ value: "", label: "（企業に紐付けない）" }]
       .concat(state.companies.map((c) => ({ value: c.id, label: c.name })));
@@ -885,7 +913,7 @@
       { name: "title", label: "タスク名 *", required: true, value: t.title, placeholder: "ES提出 / 説明会参加 など" },
       { name: "type", label: "種別", type: "select", value: t.type || "その他",
         options: ["説明会", "ES締切", "Webテスト", "面接", "OB/OG訪問", "その他"].map((x) => ({ value: x, label: x })) },
-      { name: "companyId", label: "関連企業", type: "select", options: companyOpts, value: t.companyId || "" },
+      { name: "companyId", label: "関連企業", type: "select", options: companyOpts, value: t.companyId || presetCompanyId || "" },
       { name: "dueDate", label: "期日", type: "date", value: t.dueDate },
       { name: "memo", label: "メモ", type: "textarea", rows: 2, value: t.memo },
     ], (data) => {
@@ -901,14 +929,14 @@
     });
   }
 
-  function openReviewModal() {
+  function openReviewModal(presetCompanyId) {
     if (state.companies.length === 0) {
       toast("先に企業を登録してください");
       return;
     }
     const companyOpts = state.companies.map((c) => ({ value: c.id, label: c.name }));
     openModal("口コミを追加", [
-      { name: "companyId", label: "企業 *", type: "select", options: companyOpts, value: companyOpts[0].value },
+      { name: "companyId", label: "企業 *", type: "select", options: companyOpts, value: presetCompanyId || companyOpts[0].value },
       { name: "category", label: "カテゴリ", type: "select", value: "選考体験",
         options: REVIEW_CATEGORIES.map((x) => ({ value: x, label: x })) },
       { name: "rating", label: "評価（1〜5）", type: "number", min: 1, max: 5, value: 3 },

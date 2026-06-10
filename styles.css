@@ -367,6 +367,14 @@ body {
 .char-counter { text-align: right; font-size: 0.82rem; color: var(--text-muted); font-weight: 600; margin-top: -6px; }
 .char-counter.is-over { color: var(--danger); }
 
+/* クリック可能なダッシュボード要素 */
+.is-clickable { cursor: pointer; transition: transform 0.12s, box-shadow 0.12s, background 0.12s; }
+.stat.is-clickable:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(16,24,40,0.12); }
+.stat.is-clickable:active { transform: translateY(0); }
+.upcoming li.is-clickable { border-radius: 6px; padding-left: 6px; padding-right: 6px; }
+.upcoming li.is-clickable:hover { background: var(--bg); }
+.funnel__row.is-clickable:hover { background: var(--bg); border-radius: 6px; }
+
 /* 内定お祝い演出 */
 .confetti-layer {
   position: fixed; inset: 0; z-index: 200; pointer-events: none; overflow: hidden;
