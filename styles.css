@@ -307,6 +307,66 @@ body {
 }
 .app-footer { text-align: center; color: var(--text-muted); font-size: 0.8rem; padding: 24px 16px; }
 
+/* Calendar */
+.calendar-card { padding: 16px; }
+.calendar-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.calendar-title { margin: 0; font-size: 1.05rem; flex: 0 0 auto; min-width: 120px; text-align: center; }
+.calendar-head .btn { margin-left: auto; padding: 6px 12px; font-size: 0.82rem; }
+.calendar-head .icon-btn { font-size: 0.9rem; color: var(--text); }
+.calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal__weekday { text-align: center; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); padding: 4px 0; }
+.cal__weekday.is-sun { color: var(--danger); }
+.cal__weekday.is-sat { color: var(--primary); }
+.cal__cell { min-height: 76px; border: 1px solid var(--border); border-radius: 8px; padding: 4px; background: var(--bg); overflow: hidden; }
+.cal__cell.is-empty { background: transparent; border: none; }
+.cal__cell.is-today { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+.cal__date { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); }
+.cal__cell.is-sun .cal__date { color: var(--danger); }
+.cal__cell.is-sat .cal__date { color: var(--primary); }
+.cal__events { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
+.cal__event { font-size: 0.68rem; padding: 1px 4px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
+.cal__event--task { background: var(--warn); }
+.cal__event--company { background: var(--primary); }
+.cal__event--done { background: var(--text-muted); text-decoration: line-through; }
+.cal__more { font-size: 0.66rem; color: var(--text-muted); }
+.calendar-legend { font-size: 0.78rem; color: var(--text-muted); margin: 10px 0 0; }
+
+/* Compare */
+.compare-picker { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.compare-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px; border: 1px solid var(--border); border-radius: 999px;
+  font-size: 0.85rem; cursor: pointer; background: var(--surface); user-select: none;
+}
+.compare-chip.is-on { border-color: var(--primary); color: var(--primary); background: var(--bg); font-weight: 600; }
+.compare-table-wrap { overflow-x: auto; }
+.compare-table { border-collapse: collapse; width: 100%; min-width: 400px; }
+.compare-table th, .compare-table td {
+  border: 1px solid var(--border); padding: 10px 12px; font-size: 0.85rem;
+  text-align: left; vertical-align: top; background: var(--surface);
+}
+.compare-table__corner { background: var(--bg); }
+.compare-table__rowhead { background: var(--bg); color: var(--text-muted); font-weight: 600; white-space: nowrap; width: 90px; }
+.compare-table__name { font-weight: 700; margin-bottom: 4px; }
+.compare-table td { white-space: pre-wrap; }
+
+/* Essays */
+.essay-list { display: flex; flex-direction: column; gap: 14px; }
+.essay { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--shadow); }
+.essay__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+.essay__title { font-weight: 700; font-size: 1rem; margin-right: 8px; }
+.essay__tags { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.essay__cat { font-size: 0.74rem; background: #ede9fe; color: var(--accent); padding: 2px 9px; border-radius: 999px; font-weight: 700; }
+[data-theme="dark"] .essay__cat { background: #2e2348; }
+.essay__company { font-size: 0.74rem; background: var(--bg); color: var(--text-muted); padding: 2px 9px; border-radius: 999px; font-weight: 600; border: 1px solid var(--border); }
+.essay__count { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; white-space: nowrap; }
+.essay__count.is-over { color: var(--danger); }
+.essay__body { margin: 10px 0; font-size: 0.88rem; white-space: pre-wrap; line-height: 1.7; }
+.essay__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.essay__actions .btn { padding: 6px 12px; font-size: 0.82rem; }
+.char-counter { text-align: right; font-size: 0.82rem; color: var(--text-muted); font-weight: 600; margin-top: -6px; }
+.char-counter.is-over { color: var(--danger); }
+
 /* Research modal */
 .research__lead { font-size: 0.86rem; color: var(--text-muted); margin: 0 0 16px; }
 .research__group { margin-bottom: 16px; }

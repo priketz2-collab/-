@@ -20,8 +20,10 @@
   <nav class="tabs" id="tabs">
     <button class="tabs__btn is-active" data-tab="dashboard">ダッシュボード</button>
     <button class="tabs__btn" data-tab="companies">企業・求人</button>
+    <button class="tabs__btn" data-tab="compare">企業比較</button>
     <button class="tabs__btn" data-tab="selection">選考ステータス</button>
     <button class="tabs__btn" data-tab="schedule">スケジュール</button>
+    <button class="tabs__btn" data-tab="essays">ES・自己PR</button>
     <button class="tabs__btn" data-tab="reviews">口コミ</button>
     <button class="tabs__btn" data-tab="data">データ取込/管理</button>
   </nav>
@@ -65,6 +67,14 @@
       <p class="empty" id="companyEmpty" hidden>まだ企業が登録されていません。「＋ 企業を追加」から登録するか、「データ取込/管理」タブでサンプルを読み込めます。</p>
     </section>
 
+    <!-- 企業比較 -->
+    <section class="panel" id="panel-compare">
+      <h2 class="panel__title">企業比較</h2>
+      <p class="panel__lead">比較したい企業をチェックすると、下に項目を横並びで比べられる表が出ます。</p>
+      <div class="compare-picker" id="comparePicker"></div>
+      <div class="compare-table-wrap" id="compareTableWrap"></div>
+    </section>
+
     <!-- 選考ステータス -->
     <section class="panel" id="panel-selection">
       <h2 class="panel__title">選考ステータス管理</h2>
@@ -77,6 +87,16 @@
       <div class="panel__head">
         <h2 class="panel__title">スケジュール・タスク</h2>
         <button class="btn btn--primary" id="addTaskBtn">＋ タスクを追加</button>
+      </div>
+      <div class="card calendar-card">
+        <div class="calendar-head">
+          <button class="icon-btn" id="calPrev" title="前の月">◀</button>
+          <h3 class="calendar-title" id="calTitle"></h3>
+          <button class="icon-btn" id="calNext" title="次の月">▶</button>
+          <button class="btn" id="calToday">今月</button>
+        </div>
+        <div class="calendar" id="calendar"></div>
+        <p class="calendar-legend">締切・予定（タスクの期日／企業の次アクション日）を表示します。</p>
       </div>
       <div class="toolbar">
         <label class="checkline"><input type="checkbox" id="hideDoneTasks" /> 完了を非表示</label>
@@ -107,6 +127,31 @@
       </div>
       <div class="review-list" id="reviewList"></div>
       <p class="empty" id="reviewEmpty" hidden>口コミはまだありません。</p>
+    </section>
+
+    <!-- ES・自己PR -->
+    <section class="panel" id="panel-essays">
+      <div class="panel__head">
+        <h2 class="panel__title">ES・自己PR ストック</h2>
+        <button class="btn btn--primary" id="addEssayBtn">＋ 文章を追加</button>
+      </div>
+      <p class="panel__lead">志望動機・自己PR・ガクチカなどの文章を蓄積し、使い回せます。文字数も自動でカウントします。</p>
+      <div class="toolbar">
+        <input type="search" id="essaySearch" class="input" placeholder="タイトル・本文で検索…" />
+        <select id="essayFilterCategory" class="input">
+          <option value="">すべてのカテゴリ</option>
+          <option value="志望動機">志望動機</option>
+          <option value="自己PR">自己PR</option>
+          <option value="ガクチカ">ガクチカ</option>
+          <option value="長所・短所">長所・短所</option>
+          <option value="その他">その他</option>
+        </select>
+        <select id="essayFilterCompany" class="input">
+          <option value="">すべての企業（汎用含む）</option>
+        </select>
+      </div>
+      <div class="essay-list" id="essayList"></div>
+      <p class="empty" id="essayEmpty" hidden>まだ文章がありません。「＋ 文章を追加」から登録しましょう。</p>
     </section>
 
     <!-- データ取込/管理 -->

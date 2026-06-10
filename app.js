@@ -28,12 +28,24 @@
   function load() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
+      if (raw) return normalizeState(JSON.parse(raw));
     } catch (e) {
       console.warn("データ読み込みに失敗しました", e);
     }
-    return { companies: [], tasks: [], reviews: [] };
+    return { companies: [], tasks: [], reviews: [], essays: [] };
   }
+
+  // 旧バージョンのデータに不足配列があっても落ちないように補完する
+  function normalizeState(s) {
+    s = s || {};
+    s.companies = Array.isArray(s.companies) ? s.companies : [];
+    s.tasks = Array.isArray(s.tasks) ? s.tasks : [];
+    s.reviews = Array.isArray(s.reviews) ? s.reviews : [];
+    s.essays = Array.isArray(s.essays) ? s.essays : [];
+    return s;
+  }
+
+  const ESSAY_CATEGORIES = ["志望動機", "自己PR", "ガクチカ", "長所・短所", "その他"];
 
   function save() {
     try {
@@ -308,6 +320,8 @@
     state.companies = state.companies.filter((x) => x.id !== id);
     state.reviews = state.reviews.filter((r) => r.companyId !== id);
     state.tasks.forEach((t) => { if (t.companyId === id) t.companyId = ""; });
+    state.essays.forEach((e) => { if (e.companyId === id) e.companyId = ""; });
+    delete compareSel[id];
     save();
     renderAll();
     toast("削除しました");
@@ -414,6 +428,229 @@
     save();
     renderReviews();
     renderDashboard();
+  }
+
+  /* ============================================================
+   * カレンダー（締切・予定の俯瞰）
+   * ============================================================ */
+  let calCursor = (() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; })();
+
+  function calendarEvents() {
+    // 日付(YYYY-MM-DD) => [{label, kind}]
+    const map = {};
+    const push = (date, label, kind) => {
+      if (!date) return;
+      (map[date] = map[date] || []).push({ label, kind });
+    };
+    state.tasks.forEach((t) => { if (t.dueDate) push(t.dueDate, t.title, t.done ? "done" : "task"); });
+    state.companies.forEach((c) => { if (c.nextDate) push(c.nextDate, `${c.name}：${c.nextAction || "予定"}`, "company"); });
+    return map;
+  }
+
+  function renderCalendar() {
+    const title = $("#calTitle");
+    const grid = $("#calendar");
+    if (!title || !grid) return;
+    const { y, m } = calCursor;
+    title.textContent = `${y}年 ${m + 1}月`;
+    const events = calendarEvents();
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    const first = new Date(y, m, 1);
+    const startWeekday = first.getDay();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+
+    const cells = [];
+    ["日", "月", "火", "水", "木", "金", "土"].forEach((w, i) =>
+      cells.push(el("div", { class: "cal__weekday" + (i === 0 ? " is-sun" : i === 6 ? " is-sat" : ""), text: w }))
+    );
+    for (let i = 0; i < startWeekday; i++) cells.push(el("div", { class: "cal__cell is-empty" }));
+    for (let day = 1; day <= daysInMonth; day++) {
+      const ds = `${y}-${String(m + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      const evs = events[ds] || [];
+      const weekday = new Date(y, m, day).getDay();
+      const cls = "cal__cell" + (ds === todayStr ? " is-today" : "") +
+        (weekday === 0 ? " is-sun" : weekday === 6 ? " is-sat" : "");
+      cells.push(
+        el("div", { class: cls }, [
+          el("div", { class: "cal__date", text: String(day) }),
+          el("div", { class: "cal__events" },
+            evs.slice(0, 4).map((e) =>
+              el("div", { class: "cal__event cal__event--" + e.kind, title: e.label, text: e.label })
+            ).concat(evs.length > 4 ? [el("div", { class: "cal__more", text: `他${evs.length - 4}件` })] : [])
+          ),
+        ])
+      );
+    }
+    grid.innerHTML = "";
+    cells.forEach((c) => grid.appendChild(c));
+  }
+
+  function shiftMonth(delta) {
+    let m = calCursor.m + delta, y = calCursor.y;
+    if (m < 0) { m = 11; y--; } else if (m > 11) { m = 0; y++; }
+    calCursor = { y, m };
+    renderCalendar();
+  }
+
+  /* ============================================================
+   * 企業比較
+   * ============================================================ */
+  let compareSel = {}; // id -> true
+
+  const COMPARE_ROWS = [
+    { label: "業界", get: (c) => c.industry },
+    { label: "職種", get: (c) => c.jobType },
+    { label: "勤務地", get: (c) => c.location },
+    { label: "選考状況", get: (c) => c.status, badge: true },
+    { label: "関心度", get: (c) => (c.interest ? stars(c.interest) : ""), stars: true },
+    { label: "次の予定", get: (c) => [c.nextAction, c.nextDate].filter(Boolean).join(" ") },
+    { label: "URL", get: (c) => c.url, link: true },
+    { label: "メモ", get: (c) => c.memo },
+  ];
+
+  function renderCompare() {
+    const picker = $("#comparePicker");
+    if (!picker) return;
+    // 存在しない企業の選択は掃除
+    Object.keys(compareSel).forEach((id) => { if (!state.companies.some((c) => c.id === id)) delete compareSel[id]; });
+
+    if (state.companies.length === 0) {
+      picker.innerHTML = `<p class="empty">先に企業を登録してください。</p>`;
+      $("#compareTableWrap").innerHTML = "";
+      return;
+    }
+
+    picker.innerHTML = "";
+    state.companies.slice().sort((a, b) => (b.interest || 0) - (a.interest || 0)).forEach((c) => {
+      const label = el("label", { class: "compare-chip" + (compareSel[c.id] ? " is-on" : "") }, [
+        el("input", { type: "checkbox", checked: !!compareSel[c.id], onchange: (e) => {
+          if (e.target.checked) compareSel[c.id] = true; else delete compareSel[c.id];
+          renderCompare();
+        } }),
+        document.createTextNode(c.name),
+      ]);
+      picker.appendChild(label);
+    });
+
+    const chosen = state.companies.filter((c) => compareSel[c.id]);
+    const wrap = $("#compareTableWrap");
+    if (chosen.length === 0) {
+      wrap.innerHTML = `<p class="card__text">上で2社以上チェックすると比較表が表示されます。</p>`;
+      return;
+    }
+
+    const table = el("table", { class: "compare-table" });
+    const head = el("tr", {}, [el("th", { class: "compare-table__corner", text: "項目" })]
+      .concat(chosen.map((c) => {
+        const m = statusMeta(c.status);
+        return el("th", {}, [
+          el("div", { class: "compare-table__name", text: c.name }),
+          el("span", { class: "badge", style: `background:${m.bg};color:${m.color}`, text: c.status || "未設定" }),
+        ]);
+      })));
+    table.appendChild(head);
+
+    COMPARE_ROWS.forEach((row) => {
+      const tr = el("tr", {}, [el("th", { class: "compare-table__rowhead", text: row.label })]);
+      chosen.forEach((c) => {
+        const val = row.get(c) || "";
+        let cell;
+        if (row.link && val) cell = el("td", {}, [el("a", { class: "link", href: val, target: "_blank", rel: "noopener" }, "リンク")]);
+        else if (row.stars) cell = el("td", { class: "stars", text: val });
+        else cell = el("td", { text: val || "—" });
+        tr.appendChild(cell);
+      });
+      table.appendChild(tr);
+    });
+
+    wrap.innerHTML = "";
+    wrap.appendChild(table);
+  }
+
+  /* ============================================================
+   * ES・自己PR ストック
+   * ============================================================ */
+  function renderEssayFilters() {
+    const sel = $("#essayFilterCompany");
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = `<option value="">すべての企業（汎用含む）</option>` +
+      `<option value="__none__">汎用（企業未指定）</option>` +
+      state.companies.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("");
+    sel.value = cur;
+  }
+
+  function essayCompanyLabel(id) {
+    if (!id) return "汎用";
+    return companyName(id);
+  }
+
+  function renderEssays() {
+    renderEssayFilters();
+    const list = $("#essayList");
+    if (!list) return;
+    const q = $("#essaySearch").value.trim().toLowerCase();
+    const cat = $("#essayFilterCategory").value;
+    const comp = $("#essayFilterCompany").value;
+
+    let items = state.essays.slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    if (q) items = items.filter((e) => [e.title, e.body].some((f) => (f || "").toLowerCase().includes(q)));
+    if (cat) items = items.filter((e) => e.category === cat);
+    if (comp === "__none__") items = items.filter((e) => !e.companyId);
+    else if (comp) items = items.filter((e) => e.companyId === comp);
+
+    list.innerHTML = "";
+    items.forEach((e) => {
+      const len = (e.body || "").length;
+      const limitInfo = e.limit ? ` / ${e.limit}字` : "";
+      const over = e.limit && len > Number(e.limit);
+      list.appendChild(
+        el("div", { class: "essay" }, [
+          el("div", { class: "essay__head" }, [
+            el("div", {}, [
+              el("span", { class: "essay__title", text: e.title || "（無題）" }),
+              el("span", { class: "essay__tags" }, [
+                e.category ? el("span", { class: "essay__cat", text: e.category }) : null,
+                el("span", { class: "essay__company", text: essayCompanyLabel(e.companyId) }),
+              ]),
+            ]),
+            el("span", { class: "essay__count" + (over ? " is-over" : ""), text: `${len}字${limitInfo}` }),
+          ]),
+          el("div", { class: "essay__body", text: e.body }),
+          el("div", { class: "essay__actions" }, [
+            el("button", { class: "btn", onclick: () => copyEssay(e) }, "📋 コピー"),
+            el("button", { class: "btn", onclick: () => openEssayModal(e) }, "編集"),
+            el("button", { class: "btn btn--danger", onclick: () => deleteEssay(e.id) }, "削除"),
+          ]),
+        ])
+      );
+    });
+    $("#essayEmpty").hidden = state.essays.length !== 0;
+  }
+
+  function copyEssay(e) {
+    const text = e.body || "";
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => toast("本文をコピーしました")).catch(() => toast("コピーに失敗しました"));
+    } else {
+      const ta = el("textarea", { style: "position:fixed;opacity:0" });
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); toast("本文をコピーしました"); } catch (_) { toast("コピーに失敗しました"); }
+      ta.remove();
+    }
+  }
+
+  function deleteEssay(id) {
+    const e = state.essays.find((x) => x.id === id);
+    if (!e) return;
+    if (!confirm(`「${e.title || "無題"}」を削除しますか？`)) return;
+    state.essays = state.essays.filter((x) => x.id !== id);
+    save();
+    renderEssays();
+    toast("削除しました");
   }
 
   /* ============================================================
@@ -540,6 +777,81 @@
       renderDashboard();
       toast("口コミを追加しました");
     });
+  }
+
+  function openEssayModal(existing) {
+    const e = existing || {};
+    $("#modalTitle").textContent = existing ? "文章を編集" : "文章を追加";
+    const form = $("#modalForm");
+    form.innerHTML = "";
+
+    const mk = (labelText, input) => {
+      const label = el("label", {}, [document.createTextNode(labelText)]);
+      label.appendChild(input);
+      return label;
+    };
+
+    const title = el("input", { type: "text", name: "title", placeholder: "例：自己PR（リーダーシップ）", value: e.title || "" });
+    title.required = true;
+    const category = el("select", { name: "category" },
+      ESSAY_CATEGORIES.map((c) => el("option", { value: c, selected: c === (e.category || "自己PR") }, c)));
+    const companyOpts = [{ value: "", label: "汎用（企業未指定）" }]
+      .concat(state.companies.map((c) => ({ value: c.id, label: c.name })));
+    const company = el("select", { name: "companyId" },
+      companyOpts.map((o) => el("option", { value: o.value, selected: o.value === (e.companyId || "") }, o.label)));
+    const limit = el("input", { type: "number", name: "limit", min: 0, placeholder: "例：400（任意）", value: e.limit != null ? e.limit : "" });
+    const body = el("textarea", { name: "body", rows: 8, placeholder: "本文を入力…" });
+    body.value = e.body || "";
+    body.required = true;
+
+    const counter = el("div", { class: "char-counter" });
+    const updateCounter = () => {
+      const len = body.value.length;
+      const lim = Number(limit.value);
+      counter.textContent = lim > 0 ? `${len} / ${lim} 字` : `${len} 字`;
+      counter.classList.toggle("is-over", lim > 0 && len > lim);
+    };
+    body.addEventListener("input", updateCounter);
+    limit.addEventListener("input", updateCounter);
+
+    form.appendChild(mk("タイトル *", title));
+    form.appendChild(mk("カテゴリ", category));
+    form.appendChild(mk("対象企業", company));
+    form.appendChild(mk("文字数制限（任意）", limit));
+    form.appendChild(mk("本文 *", body));
+    form.appendChild(counter);
+    updateCounter();
+
+    form.appendChild(
+      el("div", { class: "form__actions" }, [
+        el("button", { type: "button", class: "btn", onclick: closeModal }, "キャンセル"),
+        el("button", { type: "submit", class: "btn btn--primary" }, "保存"),
+      ])
+    );
+
+    form.onsubmit = (ev) => {
+      ev.preventDefault();
+      const data = {
+        title: title.value.trim(),
+        category: category.value,
+        companyId: company.value,
+        limit: limit.value ? Number(limit.value) : null,
+        body: body.value.trim(),
+      };
+      if (!data.title || !data.body) return;
+      if (existing) {
+        Object.assign(existing, data, { updatedAt: Date.now() });
+      } else {
+        state.essays.push({ id: uid(), ...data, createdAt: Date.now(), updatedAt: Date.now() });
+      }
+      save();
+      renderEssays();
+      closeModal();
+      toast(existing ? "更新しました" : "文章を追加しました");
+    };
+
+    modal.hidden = false;
+    title.focus();
   }
 
   /* ============================================================
@@ -716,6 +1028,20 @@
       if (mirai) state.tasks.push({ id: uid(), title: "みらい総合商社 ESを提出", type: "ES締切", companyId: mirai.id, dueDate: d(1), done: false, memo: "ガクチカ・志望動機", createdAt: Date.now() });
       if (tech) state.tasks.push({ id: uid(), title: "テックフロンティア 一次面接", type: "面接", companyId: tech.id, dueDate: d(3), done: false, memo: "オンライン", createdAt: Date.now() });
     }
+    // サンプル文章（ES・自己PR）
+    if (state.essays.length === 0) {
+      const tech2 = state.companies.find((c) => c.name === "テックフロンティア株式会社");
+      state.essays.push({
+        id: uid(), title: "自己PR（チームでの課題解決）", category: "自己PR", companyId: "", limit: 400,
+        body: "私の強みは、立場の異なるメンバーをつなぎ課題を前に進める力です。所属するサークルの会計システムが煩雑で、引き継ぎのたびに混乱が起きていました。私は現状をヒアリングし、無料ツールで収支を自動集計する仕組みを構築。結果、月次の集計時間を約8割削減し、後輩への引き継ぎもスムーズになりました。相手の事情を踏まえて巻き込む姿勢を、貴社でも活かしたいと考えています。",
+        createdAt: Date.now(), updatedAt: Date.now(),
+      });
+      state.essays.push({
+        id: uid(), title: "志望動機（テックフロンティア）", category: "志望動機", companyId: tech2 ? tech2.id : "", limit: 300,
+        body: "自社プロダクトを通じて顧客の課題に長期で向き合える点に強く惹かれました。説明会で伺った『技術より課題から考える』という姿勢は、私がサークル活動で大切にしてきた考え方と重なります。エンジニアとして、ユーザーの声を起点にした開発に挑戦したいです。",
+        createdAt: Date.now(), updatedAt: Date.now(),
+      });
+    }
     save();
     renderAll();
     toast(`サンプルを読み込みました（企業${added}件・口コミ${revAdded}件）`);
@@ -809,11 +1135,8 @@
           toast(`${n}件の企業を取り込みました`);
         } else {
           if (!confirm("バックアップを復元すると、現在のデータは上書きされます。続行しますか？")) return;
-          state = {
-            companies: Array.isArray(data.companies) ? data.companies : [],
-            tasks: Array.isArray(data.tasks) ? data.tasks : [],
-            reviews: Array.isArray(data.reviews) ? data.reviews : [],
-          };
+          state = normalizeState(data);
+          compareSel = {};
           save();
           renderAll();
           toast("復元しました");
@@ -831,12 +1154,23 @@
   $("#addCompanyBtn").addEventListener("click", () => openCompanyModal(null));
   $("#addTaskBtn").addEventListener("click", () => openTaskModal(null));
   $("#addReviewBtn").addEventListener("click", () => openReviewModal());
+  $("#addEssayBtn").addEventListener("click", () => openEssayModal(null));
 
   ["companySearch", "companyFilterStatus", "companySort"].forEach((id) =>
     $("#" + id).addEventListener("input", renderCompanies));
   $("#hideDoneTasks").addEventListener("change", renderTasks);
   ["reviewFilterCompany", "reviewFilterCategory"].forEach((id) =>
     $("#" + id).addEventListener("change", renderReviews));
+  ["essaySearch", "essayFilterCategory", "essayFilterCompany"].forEach((id) =>
+    $("#" + id).addEventListener("input", renderEssays));
+
+  $("#calPrev").addEventListener("click", () => shiftMonth(-1));
+  $("#calNext").addEventListener("click", () => shiftMonth(1));
+  $("#calToday").addEventListener("click", () => {
+    const d = new Date();
+    calCursor = { y: d.getFullYear(), m: d.getMonth() };
+    renderCalendar();
+  });
 
   $("#loadSampleBtn").addEventListener("click", loadSample);
   $("#showImportFormatBtn").addEventListener("click", () => {
@@ -867,7 +1201,8 @@
   });
   $("#resetBtn").addEventListener("click", () => {
     if (!confirm("すべてのデータを削除します。元に戻せません。よろしいですか？")) return;
-    state = { companies: [], tasks: [], reviews: [] };
+    state = { companies: [], tasks: [], reviews: [], essays: [] };
+    compareSel = {};
     save();
     renderAll();
     toast("全データを削除しました");
@@ -879,8 +1214,11 @@
   function renderAll() {
     renderDashboard();
     renderCompanies();
+    renderCompare();
     renderSelectionBoard();
     renderTasks();
+    renderCalendar();
+    renderEssays();
     renderReviews();
   }
 
